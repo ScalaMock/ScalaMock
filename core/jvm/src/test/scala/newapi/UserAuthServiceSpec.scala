@@ -1,12 +1,13 @@
 package newapi
 
 import org.scalamock.stubs.Stubs
-import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.concurrent.{PatienceConfiguration, ScalaFutures}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.concurrent.duration.*
 
 enum UserStatus:
   case Normal, Blocked
@@ -41,7 +42,10 @@ class UserAuthService(
         }
 
 
-class UserAuthServiceSpec extends AnyFunSpec, Matchers, Stubs, ScalaFutures:
+class UserAuthServiceSpec extends AnyFunSpec, Matchers, Stubs, ScalaFutures, PatienceConfiguration:
+  given PatienceConfig = PatienceConfig(1.second, 100.millis)
+
+
   val unknownUserId = 0
   val user = User(1, UserStatus.Normal)
   val blockedUser = User(2, UserStatus.Blocked)
