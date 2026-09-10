@@ -15,10 +15,12 @@ lazy val root = project.in(file("."))
   .aggregate(
     scalamock.jvm,
     scalamock.js,
+    `scalamock-cats-effect`.jvm,
+    `scalamock-cats-effect`.js,
+    `scalamock-kyo`.jvm,
+    `scalamock-kyo`.js,
     `scalamock-zio`.jvm,
     `scalamock-zio`.js,
-    `scalamock-cats-effect`.jvm,
-    `scalamock-cats-effect`.js
   )
 
 lazy val scalamock = crossProject(JSPlatform, JVMPlatform)
@@ -54,7 +56,6 @@ lazy val `scalamock-zio` = crossProject(JSPlatform, JVMPlatform)
   .jvmSettings(name := "scalamock-zio")
   .dependsOn(scalamock)
 
-
 lazy val `scalamock-cats-effect` = crossProject(JSPlatform, JVMPlatform)
   .in(file("cats-effect"))
   .settings(
@@ -69,6 +70,22 @@ lazy val `scalamock-cats-effect` = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(name := "scalamock-cats-effect")
   .jvmSettings(name := "scalamock-cats-effect")
+  .dependsOn(scalamock)
+
+lazy val `scalamock-kyo` = crossProject(JSPlatform, JVMPlatform)
+  .in(file("kyo"))
+  .settings(
+    name := "scalamock-kyo",
+    commonSettings,
+    libraryDependencies ++= {
+      val kyoVersion = "1.0-RC1"
+      Seq(
+        "io.getkyo" %%% "kyo-core" % kyoVersion,
+      )
+    }
+  )
+  .jsSettings(name := "scalamock-kyo")
+  .jvmSettings(name := "scalamock-kyo")
   .dependsOn(scalamock)
 
 lazy val examples = project
