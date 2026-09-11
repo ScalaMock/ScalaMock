@@ -1,7 +1,7 @@
 package newapi
 
 import com.paulbutcher.test._
-import org.scalamock.stubs.Stubs
+import org.scalamock.stubs.{Stubs, StubNotImplementedError}
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 import some.other.pkg.SomeOtherClass
@@ -1093,6 +1093,15 @@ class NewApiSpec extends AnyFunSpec with Matchers with Stubs {
     m.withOneDefaultParam("a") shouldBe "one"
     m.withOneDefaultParam("a", "default") shouldBe "one"
     m.withOneDefaultParam("a", "other") shouldBe "two"
+
+    intercept[StubNotImplementedError] {
+      m.withTwoDefaultParams("x", "y") // not stubbed
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      startWith("Implementation is missing for [") and
+        include("ClassHavingMethodsWithDefaultParams.withTwoDefaultParams(a: String, b: String, c: Int)") and
+        endWith("] and argument [(x,y,42)]")
+    }
   }
 
   it("stub class methods with two default parameters") {
@@ -1108,6 +1117,15 @@ class NewApiSpec extends AnyFunSpec with Matchers with Stubs {
     m.withTwoDefaultParams("a", "default") shouldBe "one"
     m.withTwoDefaultParams("a", "default", 42) shouldBe "one"
     m.withTwoDefaultParams("a", "other", 99) shouldBe "two"
+
+    intercept[StubNotImplementedError] {
+      m.withOneDefaultParam("x") // not stubbed
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      startWith("Implementation is missing for [") and
+        include("ClassHavingMethodsWithDefaultParams.withOneDefaultParam(a: String, b: String)") and
+        endWith("] and argument [(x,default)]")
+    }
   }
 
   it("stub trait methods with type param and default parameters") {
@@ -1120,6 +1138,72 @@ class NewApiSpec extends AnyFunSpec with Matchers with Stubs {
 
     m.withDefaultParamAndTypeParam[Int]("default", 5) shouldBe 5
     m.withDefaultParamAndTypeParam[Int]("defaul", 5) shouldBe 6
+
+    intercept[StubNotImplementedError] {
+      m.withAllDefaultParams() // not stubbed
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      startWith("Implementation is missing for [") and
+        include("TraitHavingMethodsWithDefaultParams.withAllDefaultParams(a: String, b: NewApiSpec.this.CaseClass)") and
+        endWith("] and argument [(default,CaseClass(42))]")
+    }
+  }
+
+  it("returnsWhen cope with 1-param method") {
+    val m = stub[TestTrait]
+    (m.oneParam _).returnsWhen {
+      case 42 => "the answer to everything"
+    }
+
+    m.oneParam(42) shouldBe "the answer to everything"
+
+    intercept[StubNotImplementedError] {
+      m.oneParam(100)
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      startWith("Implementation is missing for [") and
+        include("TestTrait.oneParam(x: Int)") and
+        endWith("] and argument [100]")
+    }
+  }
+
+  it("returnsWhen cope with 2-param method") {
+    val m = stub[TestTrait]
+    (m.twoParams _).returnsWhen {
+      case (1, 2.3) => "nice"
+      case (4, _) => "cool"
+    }
+
+    m.twoParams(1, 2.3) shouldBe "nice"
+    m.twoParams(4, 5.6) shouldBe "cool"
+
+    intercept[StubNotImplementedError] {
+      m.twoParams(1, 1.1)
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      // Also note that Double can be formatted differently on JVM and JS.
+      startWith("Implementation is missing for [") and
+        include("TestTrait.twoParams(x: Int, y: Double)") and
+        endWith("] and argument [(1,1.1)]")
+    }
+  }
+
+  it("returnsWhen cope with curried method") {
+    val m = stub[TestTrait]
+    (m.curried(_: Int)(_: Double)).returnsWhen {
+      case (123, 45.6) => "789"
+    }
+    m.curried(123)(45.6) shouldBe "789"
+
+    intercept[StubNotImplementedError] {
+      m.curried(654)(3.21)
+    }.getMessage should {
+      // Exact error message varies in Scala 2.12 and 2.13
+      // Also note that Double can be formatted differently on JVM and JS.
+      startWith("Implementation is missing for [") and
+        include("TestTrait.curried(x: Int)(y: Double)") and
+        endWith("] and argument [(654,3.21)]")
+    }
   }
 
   it("should mock generic Iterable") {
@@ -1127,4 +1211,3 @@ class NewApiSpec extends AnyFunSpec with Matchers with Stubs {
   }
 
 }
-

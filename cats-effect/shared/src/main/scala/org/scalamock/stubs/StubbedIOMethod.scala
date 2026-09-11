@@ -198,6 +198,8 @@ class StubbedIOMethod[A, R](delegate: StubbedMethod[A, R]) extends StubbedMethod
    * */
   def returnsWith(f: => R): Unit = delegate.returnsWith(f)
 
+  def returnsWhen(pf: PartialFunction[A, R]): Unit = delegate.returnsWhen(pf)
+
   /** Allows to set result depending on call number starting from 1
    *
    * Scala 3
