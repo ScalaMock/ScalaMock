@@ -20,7 +20,16 @@ jobs:
         distribution: 'adopt'
     - uses: sbt/setup-sbt@v1
     - name: Run tests
-      run: sbt ++2.12.21 test
+      # Scala Native is Scala 3 only (crossScalaVersions is pinned to 3.x for
+      # the .native projects), so plain `test` on the aggregated root project
+      # would still try to compile those modules with the Scala 3 compiler
+      # bridge, which requires a newer JDK than this job uses. Scope the run
+      # to the JVM/JS projects instead.
+      run: >
+        sbt ++2.12.21
+        scalamockJVM/test scalamockJS/test
+        scalamock-zioJVM/test scalamock-zioJS/test
+        scalamock-cats-effectJVM/test scalamock-cats-effectJS/test
 
   scala_2_13:
 
@@ -35,7 +44,12 @@ jobs:
         distribution: 'adopt'
     - uses: sbt/setup-sbt@v1
     - name: Run tests
-      run: sbt ++2.13.18 test
+      # See comment in scala_2_12 job: Scala Native is Scala 3 only.
+      run: >
+        sbt ++2.13.18
+        scalamockJVM/test scalamockJS/test
+        scalamock-zioJVM/test scalamock-zioJS/test
+        scalamock-cats-effectJVM/test scalamock-cats-effectJS/test
 
   scala_3:
 

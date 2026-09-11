@@ -15,13 +15,16 @@ lazy val root = project.in(file("."))
   .aggregate(
     scalamock.jvm,
     scalamock.js,
+    scalamock.native,
     `scalamock-zio`.jvm,
     `scalamock-zio`.js,
+    `scalamock-zio`.native,
     `scalamock-cats-effect`.jvm,
-    `scalamock-cats-effect`.js
+    `scalamock-cats-effect`.js,
+    `scalamock-cats-effect`.native
   )
 
-lazy val scalamock = crossProject(JSPlatform, JVMPlatform)
+lazy val scalamock = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("core"))
   .settings(
     commonSettings,
@@ -34,8 +37,13 @@ lazy val scalamock = crossProject(JSPlatform, JVMPlatform)
       specs2.value % Optional
     )
   )
+  // Scala Native 0.5 dropped java.lang.reflect support, which the Scala 2 macros rely on.
+  // Only Scala 3 (which uses scala.reflect.Selectable instead) is supported on Native.
+  .nativeSettings(
+    crossScalaVersions := Seq(scalaVersion.value)
+  )
 
-lazy val `scalamock-zio` = crossProject(JSPlatform, JVMPlatform)
+lazy val `scalamock-zio` = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("zio"))
   .settings(
     name := "scalamock-zio",
@@ -52,10 +60,14 @@ lazy val `scalamock-zio` = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(name := "scalamock-zio")
   .jvmSettings(name := "scalamock-zio")
+  .nativeSettings(
+    name := "scalamock-zio",
+    crossScalaVersions := Seq(scalaVersion.value)
+  )
   .dependsOn(scalamock)
 
 
-lazy val `scalamock-cats-effect` = crossProject(JSPlatform, JVMPlatform)
+lazy val `scalamock-cats-effect` = crossProject(JSPlatform, JVMPlatform, NativePlatform)
   .in(file("cats-effect"))
   .settings(
     name := "scalamock-cats-effect",
@@ -69,6 +81,10 @@ lazy val `scalamock-cats-effect` = crossProject(JSPlatform, JVMPlatform)
   )
   .jsSettings(name := "scalamock-cats-effect")
   .jvmSettings(name := "scalamock-cats-effect")
+  .nativeSettings(
+    name := "scalamock-cats-effect",
+    crossScalaVersions := Seq(scalaVersion.value)
+  )
   .dependsOn(scalamock)
 
 lazy val examples = project
