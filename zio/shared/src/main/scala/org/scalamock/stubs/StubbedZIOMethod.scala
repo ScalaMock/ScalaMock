@@ -221,6 +221,8 @@ class StubbedZIOMethod[A, R](delegate: StubbedMethod[A, R]) extends StubbedMetho
    * */
   def returnsWith(value: => R) = delegate.returnsWith(value)
 
+  def returnsWhen(pf: PartialFunction[A, R]): Unit = delegate.returnsWhen(pf)
+
   /** Allows to set result depending on call number starting from 1
    *
    * Scala 3
@@ -247,7 +249,7 @@ class StubbedZIOMethod[A, R](delegate: StubbedMethod[A, R]) extends StubbedMetho
    *     _ <- foo.bar.returnsZIOOnCall:
    *       case 1 => ZIO.succeed(0)
    *       case _ => ZIO.succeed(1)
-   *   yield ()  
+   *   yield ()
    *    }}}
    * Scala 2
    *
@@ -257,7 +259,7 @@ class StubbedZIOMethod[A, R](delegate: StubbedMethod[A, R]) extends StubbedMetho
    *       case 1 => ZIO.succeed(0)
    *       case _ => ZIO.succeed(1)
    *     }
-   *   } yield () 
+   *   } yield ()
    * }}}
    *
    * */

@@ -83,6 +83,33 @@ trait StubbedMethod[A, R] {
    * */
   def returnsWith(value: => R): Unit
 
+  /** Allows to set a result for the method with arguments using a partial function
+   * in order to stub a certain set of argument values only and fail otherwise.
+   *
+   * Scala 3
+   * {{{
+   *   foo.fooBar.returnsWhen:
+   *     case (true, "foo") => "true"
+   *     case (_, "bar") => "false
+   * }}}
+   * Scala 2
+   * {{{
+   *   (foo.fooBar _).returnsWhen {
+   *     case (true, "foo") => "true"
+   *     case (_, "bar") => "false
+   *   }
+   * }}}
+   * If the stubbed method is called with an argument for which the partial function is not defined,
+   * then a `StubNotImplementedException` will be thrown:
+   * {{{
+   *   foo.fooBar((false, "bar")) // returns "false"
+   *   foo.fooBar((false, "foo")) // throws StubNotImplementedException
+   * }}}
+   *
+   * @param pf partial function from arguments of type `A` to result of type `R`
+   */
+  def returnsWhen(pf: PartialFunction[A, R]): Unit
+
   /** Allows to set result depending on call number starting from 1
    *
    * Scala 3
@@ -231,18 +258,19 @@ object StubbedMethod {
     private val callsRef: AtomicReference[List[A]] =
       new AtomicReference[List[A]](Nil)
 
-    private val resultRef: AtomicReference[Option[A => R]] =
-      new AtomicReference[Option[A => R]](None)
+    private val resultRef: AtomicReference[PartialFunction[A, R]] =
+      new AtomicReference[PartialFunction[A, R]](PartialFunction.empty)
 
     def impl(args: A): R =
       io match {
         case None =>
           callLog.foreach(_.internal.write(asString))
           callsRef.updateAndGet(args :: _)
-          resultRef.get() match {
-            case Some(f) => f(args)
-            case None => throw new NotImplementedError(s"Implementation is missing for [$asString]")
-          }
+          resultRef.get()
+            .applyOrElse(
+              args,
+              (_: A) => throw StubNotImplementedError(this, args))
+
         case Some(io) =>
           io.flatMap(
             io.succeed {
@@ -250,26 +278,30 @@ object StubbedMethod {
               callsRef.updateAndGet(args :: _)
             }
           ) { _ =>
-            resultRef.get() match {
-              case Some(f) => f(args).asInstanceOf[io.F[Any, Any]]
-              case None => io.die(new NotImplementedError(s"Implementation is missing for [$asString]"))
-            }
+            resultRef.get()
+              .asInstanceOf[PartialFunction[A, io.F[Any, Any]]]
+              .applyOrElse(
+                args,
+                (_: A) => io.die(StubNotImplementedError(this, args)))
           }.asInstanceOf[R]
       }
 
     def clear(): Unit = {
       callsRef.set(Nil)
-      resultRef.set(None)
+      resultRef.set(PartialFunction.empty)
     }
 
     override def returns(f: A => R): Unit =
-      resultRef.set(Some(f))
+      resultRef.set { case a => f(a) }
 
     override def returnsWith(value: => R): Unit =
-      resultRef.set(Some(_ => value))
+      resultRef.set { case _ => value }
+
+    override def returnsWhen(pf: PartialFunction[A, R]): Unit =
+      resultRef.set(pf)
 
     override def returnsOnCall(f: Int => R): Unit =
-      resultRef.set(Some(_ => f(callsRef.get().length)))
+      resultRef.set { case _ => f(callsRef.get().length) }
 
     override def times: Int =
       callsRef.get().length
