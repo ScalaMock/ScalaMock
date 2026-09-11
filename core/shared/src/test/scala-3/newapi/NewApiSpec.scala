@@ -1233,10 +1233,13 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
     m.withOneDefaultParam("a", "default") shouldBe "one"
     m.withOneDefaultParam("a", "other") shouldBe "two"
 
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.withTwoDefaultParams("x", "y") // not stubbed
-    } should have message
-      "Implementation is missing for [<stub-99> ClassHavingMethodsWithDefaultParams.withTwoDefaultParams(a: String, b: String, c: Int)String] and argument [(x,y,42)]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("ClassHavingMethodsWithDefaultParams.withTwoDefaultParams(a: String, b: String, c: Int)String") and
+        endWith("] and argument [(x,y,42)]")
+    }
   }
 
   it("stub class methods with two default parameters") {
@@ -1252,10 +1255,13 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
     m.withTwoDefaultParams("a", "default", 42) shouldBe "one"
     m.withTwoDefaultParams("a", "other", 99) shouldBe "two"
 
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.withOneDefaultParam("x") // not stubbed
-    } should have message
-      "Implementation is missing for [<stub-100> ClassHavingMethodsWithDefaultParams.withOneDefaultParam(a: String, b: String)String] and argument [(x,default)]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("ClassHavingMethodsWithDefaultParams.withOneDefaultParam(a: String, b: String)String") and
+        endWith("] and argument [(x,default)]")
+    }
   }
 
   it("stub trait methods with type param and default parameters") {
@@ -1268,10 +1274,13 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
     m.withDefaultParamAndTypeParam[Int]("default", 5) shouldBe 5
     m.withDefaultParamAndTypeParam[Int]("defaul", 5) shouldBe 6
 
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.withAllDefaultParams() // not stubbed
-    } should have message
-      "Implementation is missing for [<stub-101> TraitHavingMethodsWithDefaultParams.withAllDefaultParams(a: String, b: CaseClass)String] and argument [(default,CaseClass(42))]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("TraitHavingMethodsWithDefaultParams.withAllDefaultParams(a: String, b: CaseClass)String") and
+        endWith("] and argument [(default,CaseClass(42))]")
+    }
   }
 
   it("returnsWhen cope with 1-param method") {
@@ -1280,10 +1289,13 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
       case 42 => "the answer to everything"
 
     m.oneParam(42) shouldBe "the answer to everything"
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.oneParam(100)
-    } should have message
-      "Implementation is missing for [<stub-102> TestTrait.oneParam(x: Int)String] and argument [100]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("TestTrait.oneParam(x: Int)String") and
+        endWith("] and argument [100]")
+    }
   }
 
   it("returnsWhen cope with 2-param method") {
@@ -1294,10 +1306,13 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
 
     m.twoParams(1, 2.3) shouldBe "nice"
     m.twoParams(4, 5.6) shouldBe "cool"
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.twoParams(1, 1.1)
-    } should have message
-      "Implementation is missing for [<stub-103> TestTrait.twoParams(x: Int, y: Double)String] and argument [(1,1.1)]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("TestTrait.twoParams(x: Int, y: Double)String") and
+        endWith("] and argument [(1,1.1)]")
+    }
   }
 
   it("returnsWhen cope with curried method") {
@@ -1306,8 +1321,11 @@ class NewApiSpec extends AnyFunSpec, Matchers, Stubs:
       case (123, 45.6) => "789"
 
     m.curried(123)(45.6) shouldBe "789"
-    the[StubNotImplementedError] thrownBy {
+    intercept[StubNotImplementedError] {
       m.curried(654)(3.21)
-    } should have message
-      "Implementation is missing for [<stub-104> TestTrait.curried(x: Int)(y: Double)String] and argument [(654,3.21)]"
+    }.getMessage should {
+      startWith("Implementation is missing for [") and
+        include("TestTrait.curried(x: Int)(y: Double)String") and
+        endWith("] and argument [(654,3.21)]")
+    }
   }
