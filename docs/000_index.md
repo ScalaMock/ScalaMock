@@ -26,9 +26,9 @@ Supported Platforms
 
 | Scala Version | JVM | JS (1.x) | Native (0.5.x) |
 |---------------|:---:|:--------:|:--------------:|
-| 2.12.x        |  ✅  |    ✅     |  Coming soon   |
-| 2.13.x        |  ✅  |    ✅     |  Coming soon   |
-| 3.x           |  ✅  |    ✅     |  Coming soon   |
+| 2.12.x        |  ✅  |    ✅     |       ❌        |
+| 2.13.x        |  ✅  |    ✅     |       ❌        |
+| 3.x           |  ✅  |    ✅     |       ✅        |
 
 
 ---
@@ -39,12 +39,24 @@ Dependencies
 ![](https://img.shields.io/github/v/release/scalamock/scalamock?color=green])
 {: .d-flex .flex-justify-start }
 
+{: .note }
+> As of **7.6.0**, test framework integrations depend directly on their corresponding test framework instead
+> of pulling it in transitively via the core `scalamock` module. Only add the modules you actually use:
+> `scalamock-scalatest` for ScalaTest, `scalamock-specs2-4` for specs2 4.x, `scalamock-specs2-5` for specs2 5.x
+> (Scala 3 only), `scalamock-zio` for ZIO Test, `scalamock-cats-effect` for cats-effect.
+
 ### sbt
 
 ```scala
 libraryDependencies ++= Seq(
-  // core module
+  // core module - includes stubs
   "org.scalamock" %% "scalamock" % "<version in the badge>" % Test,
+  // scalatest integration
+  "org.scalamock" %% "scalamock-scalatest" % "<version in the badge>" % Test,
+  // specs2 4.x integration
+  "org.scalamock" %% "scalamock-specs2-4" % "<version in the badge>" % Test,
+  // specs2 5.x integration (Scala 3 only)
+  "org.scalamock" %% "scalamock-specs2-5" % "<version in the badge>" % Test,
   // zio integration
   "org.scalamock" %% "scalamock-zio" % "<version in the badge>" % Test,
   // cats-effect integration
@@ -60,6 +72,12 @@ object main extends JavaModule {
     override def ivyDeps =
       Agg(
         ivy"org.scalamock::scalamock:<version in the badge>",
+        // scalatest integration
+        ivy"org.scalamock::scalamock-scalatest:<version in the badge>",
+        // specs2 4.x integration
+        ivy"org.scalamock::scalamock-specs2-4:<version in the badge>",
+        // specs2 5.x integration (Scala 3 only)
+        ivy"org.scalamock::scalamock-specs2-5:<version in the badge>",
         // zio integration
         ivy"org.scalamock::scalamock-zio:<version in the badge>",
         // cats-effect integration
@@ -73,6 +91,9 @@ object main extends JavaModule {
 
 ```scala
 //> using test.dep "org.scalamock::scalamock:<version in the badge>"
+//> using test.dep "org.scalamock::scalamock-scalatest:<version in the badge>"
+//> using test.dep "org.scalamock::scalamock-specs2-4:<version in the badge>"
+//> using test.dep "org.scalamock::scalamock-specs2-5:<version in the badge>"
 //> using test.dep "org.scalamock::scalamock-zio:<version in the badge>"
 //> using test.dep "org.scalamock::scalamock-cats-effect:<version in the badge>"
 ```
@@ -81,10 +102,31 @@ object main extends JavaModule {
 
 ```xml
 <dependencies>
-  <!-- core module -->
+  <!-- core module - includes stubs -->
   <dependency>
     <groupId>org.scalamock</groupId>
     <artifactId>scalamock_3</artifactId>
+    <version><!-- version in the badge --></version>
+    <scope>test</scope>
+  </dependency>
+  <!-- scalatest integration -->
+  <dependency>
+    <groupId>org.scalamock</groupId>
+    <artifactId>scalamock-scalatest_3</artifactId>
+    <version><!-- version in the badge --></version>
+    <scope>test</scope>
+  </dependency>
+  <!-- specs2 4.x integration -->
+  <dependency>
+    <groupId>org.scalamock</groupId>
+    <artifactId>scalamock-specs2-4_3</artifactId>
+    <version><!-- version in the badge --></version>
+    <scope>test</scope>
+  </dependency>
+  <!-- specs2 5.x integration (Scala 3 only) -->
+  <dependency>
+    <groupId>org.scalamock</groupId>
+    <artifactId>scalamock-specs2-5_3</artifactId>
     <version><!-- version in the badge --></version>
     <scope>test</scope>
   </dependency>
@@ -114,7 +156,7 @@ Getting started
 ### Classic + scalatest
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.3.2
+//> using test.dep org.scalamock::scalamock-scalatest:7.6.0
 //> using test.dep org.scalatest::scalatest:3.2.19
 
 import org.scalamock.scalatest.MockFactory
@@ -141,7 +183,7 @@ class MyTest extends AnyFlatSpec, MockFactory:
 ### Classic + specs2
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.3.2
+//> using test.dep org.scalamock::scalamock-specs2-5:7.6.0
 //> using test.dep org.specs2::specs2-core:5.6.3
 
 import org.scalamock.specs2.MockContext
@@ -175,7 +217,7 @@ class MySpec extends Specification {
 ```scala
 //> using dep dev.zio::zio:2.1.19
 //> using test.dep dev.zio::zio-test:2.1.19
-//> using test.dep org.scalamock::scalamock-zio:7.5.0
+//> using test.dep org.scalamock::scalamock-zio:7.6.0
 
 import org.scalamock.ziotest._
 import zio._
@@ -204,7 +246,7 @@ object UserServiceTest extends ScalamockZIOSpec {
 ### Stubs + munit
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.3.2
+//> using test.dep org.scalamock::scalamock:7.6.0
 //> using test.dep org.scalameta::munit:1.1.1
 
 import org.scalamock.stubs.Stubs
@@ -233,7 +275,7 @@ class MyTest extends FunSuite, Stubs:
 ### Stubs + scalatest
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.3.2
+//> using test.dep org.scalamock::scalamock:7.6.0
 //> using test.dep org.scalatest::scalatest:3.2.19
 
 import org.scalamock.stubs.Stubs
@@ -262,7 +304,7 @@ class MyTest extends AnyFunSuite, Matchers, Stubs:
 ### Stubs + specs2
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.3.2
+//> using test.dep org.scalamock::scalamock-specs2-5:7.6.0
 //> using test.dep org.specs2::specs2-core:5.6.3
 
 import org.scalamock.stubs.Stubs
@@ -293,9 +335,9 @@ class MySpec extends Specification, Stubs:
 ### Stubs + ZIO test
 
 ```scala
-//> using dep dev.zio::zio:2.1.17
-//> using test.dep dev.zio::zio-test:2.1.17
-//> using test.dep org.scalamock::scalamock-zio:7.3.2
+//> using dep dev.zio::zio:2.1.19
+//> using test.dep dev.zio::zio-test:2.1.19
+//> using test.dep org.scalamock::scalamock-zio:7.6.0
 
 import org.scalamock.stubs.ZIOStubs
 import zio.test.*
@@ -333,7 +375,7 @@ class MyTest extends ZIOSpecDefault, ZIOStubs:
 
 ```scala
 //> using dep org.typelevel::cats-effect:3.6.1
-//> using test.dep org.scalamock::scalamock-cats-effect:7.3.2
+//> using test.dep org.scalamock::scalamock-cats-effect:7.6.0
 //> using test.dep org.typelevel::munit-cats-effect:2.1.0
 
 import org.scalamock.stubs.CatsEffectStubs
