@@ -24,17 +24,17 @@ The first rule of **scalamock** is not to share any mocks and stubs between your
 Usually - you should create some fixture/wiring to be reused in each test-case.
 
 {: .note }
-> As of **7.6.0**, test framework integrations are being extracted out of the core `scalamock` artifact into
-> their own published modules with their own dependency on the corresponding framework - see the
-> [Specs2](#specs2) section below. **Scalatest** integration is still bundled in the core `scalamock` module
-> for now, but will be extracted into its own `scalamock-scalatest` module the same way in an upcoming release.
+> As of **7.6.0**, test framework integrations are extracted out of the core `scalamock` artifact into their
+> own published modules with their own dependency on the corresponding framework: `scalamock-scalatest` for
+> Scalatest, `scalamock-specs2-4`/`scalamock-specs2-5` for specs2 (see the [Specs2](#specs2) section below),
+> and `scalamock-zio` for ZIO Test.
 
 ### Scalatest
 
 To use **scalamock** with **scalatest** - your suite should mixin `org.scalamock.scalatest.MockFactory`
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.4.1
+//> using test.dep org.scalamock::scalamock-scalatest:7.6.0
 //> using test.dep org.scalatest::scalatest:3.2.19
 
 import org.scalamock.scalatest.MockFactory
@@ -134,7 +134,7 @@ For detailed ZIO Test integration guide, see [ZIO Test Integration](/classic/zio
 
 ```scala
 //> using dep dev.zio::zio:2.1.19
-//> using test.dep org.scalamock::scalamock-zio:7.5.0
+//> using test.dep org.scalamock::scalamock-zio:7.6.0
 //> using test.dep dev.zio::zio-test:2.1.19
 
 import org.scalamock.ziotest._
