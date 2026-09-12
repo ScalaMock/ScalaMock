@@ -39,78 +39,29 @@ private[stubs] class StubMaker(
     collector: Expr[CreatedStubs],
     stubUniqueIndexGenerator: Expr[StubUniqueIndexGenerator]
   ): Expr[Stub[T]] =
-    val tpe = TypeRepr.of[T]
-    val parents = parentsOf[T]
-    val methods = MockableDefinitions(tpe)
-    val log = Expr.summon[CallLog]
-
-    val classSymbol = Symbol.newClass(
-      owner = Symbol.spliceOwner,
-      name = "anon",
-      parents = parents.map {
-        case term: Term => term.tpe
-        case tpt: TypeTree => tpt.tpe
-      },
-      decls = classSymbol =>
-        methods.flatMap { method =>
-          List(
-            // Creates a field to store stubbed method representation
-            // val stub$<name>$<idx>: StubbedMethod.Internal[Any, Any]
-            Symbol.newVal(
-              parent = classSymbol,
-              name = method.stubValName,
-              tpe = TypeRepr.of[StubbedMethod.Internal[Any, Any]],
-              flags = Flags.EmptyFlags,
-              privateWithin = Symbol.noSymbol
-            ),
-            // Creates an override for the val
-            // override val <name>: type
-            if method.symbol.isValDef then
-              Symbol.newVal(
-                parent = classSymbol,
-                name = method.symbol.name,
-                tpe = This(classSymbol).tpe.memberType(method.symbol),
-                flags = Flags.Override,
-                privateWithin = Symbol.noSymbol
-              )
-            else
-              // Creates an implementation for the method, which will use StubbedMethod.Internal under the hood
-              // override def <name>(...args): type
-              Symbol.newMethod(
-                parent = classSymbol,
-                name = method.symbol.name,
-                tpe = This(classSymbol).tpe.memberType(method.symbol),
-                flags = Flags.Override,
-                privateWithin = Symbol.noSymbol
-              ),
-          )
-        } ::: List(
-          // Creates a method to clear this stub
-          // def stub$macro$clear(): Unit
-          Symbol.newMethod(
-            parent = classSymbol,
-            name = ClearStubsMethodName,
-            tpe = MethodType(Nil)(_ => Nil, _ => TypeRepr.of[Unit]),
-            flags = Flags.EmptyFlags,
-            privateWithin = Symbol.noSymbol
-          ),
-          // Creates a field to store unique index for this stub
-          // val stub$macro$idx: Int
-          Symbol.newVal(
-            parent = classSymbol,
-            name = UniqueStubIdx,
-            tpe = TypeRepr.of[Int],
-            flags = Flags.EmptyFlags,
-            privateWithin = Symbol.noSymbol
-          )
+    val instance = buildInstance[T](
+      anonName = "anon",
+      extraDecls = (classSymbol, _) => List(
+        // Creates a method to clear this stub
+        // def stub$macro$clear(): Unit
+        Symbol.newMethod(
+          parent = classSymbol,
+          name = ClearStubsMethodName,
+          tpe = MethodType(Nil)(_ => Nil, _ => TypeRepr.of[Unit]),
+          flags = Flags.EmptyFlags,
+          privateWithin = Symbol.noSymbol
         ),
-      selfType = None
-    )
-
-    val classDef = ClassDef(
-      cls = classSymbol,
-      parents = parents,
-      body = List(
+        // Creates a field to store unique index for this stub
+        // val stub$macro$idx: Int
+        Symbol.newVal(
+          parent = classSymbol,
+          name = UniqueStubIdx,
+          tpe = TypeRepr.of[Int],
+          flags = Flags.EmptyFlags,
+          privateWithin = Symbol.noSymbol
+        )
+      ),
+      extraBody = (classSymbol, methods) => List(
         // Creates a method to clear this stub
         // val stub$<name>$<idx>
         // def stub$macro$clear(): Unit = stub$<name>$<idx>.clear()
@@ -128,55 +79,74 @@ private[stubs] class StubMaker(
           symbol = classSymbol.declaredField(UniqueStubIdx),
           Some('{ $stubUniqueIndexGenerator.nextIdx() }.asTerm)
         )
-      ) ::: methods.flatMap { method =>
-        List(
-          ValDef(
-            classSymbol.declaredField(method.stubValName),
-            Some {
-              val callLog = Expr.summon[CallLog] match {
-                case Some(log) => '{ Some(${log}) }
-                case None => '{ None }
-              }
-              val idx = Ref(classSymbol.declaredField(UniqueStubIdx)).asExprOf[Int]
-              val ioOpt = Expr.summon[StubIO].filter(_.isMatches(method.rawResType)) match
-                case Some(io) => '{ Some($io) }
-                case None => '{None}
-
-              '{
-                new StubbedMethod.Internal[Any, Any](
-                  s"<stub-" + $idx + "> " + ${ Expr(method.show) },
-                  $callLog,
-                  $ioOpt
-                )
-              }.asTerm
-            }
-          ),
-          if (method.symbol.isValDef)
-            ValDef(method.symbol.overridingSymbol(classSymbol), Some('{ null }.asTerm))
-          else
-            DefDef(
-              symbol = method.symbol.overridingSymbol(classSymbol),
-              params => Some {
-                method.prepareResType(classSymbol, params).asType match
-                  case '[res] =>
-                    val tupledArgs = tupled(params.flatMap {_.collect { case term: Term => term }}).asExpr
-                    '{ ${ method.stubbedMethodRef(classSymbol) }.impl(${tupledArgs}).asInstanceOf[res] }
-                      .asTerm
-                      .changeOwner(method.symbol.overridingSymbol(classSymbol))
-              }
-            )
-        )
-      }
-    )
-
-    val instance = Block(
-      List(classDef),
-      Typed(
-        Apply(
-          Select(New(TypeIdent(classSymbol)), classSymbol.primaryConstructor),
-          Nil
+      ),
+      methodDecls = (classSymbol, method) => List(
+        // Creates a field to store stubbed method representation
+        // val stub$<name>$<idx>: StubbedMethod.Internal[Any, Any]
+        Symbol.newVal(
+          parent = classSymbol,
+          name = method.stubValName,
+          tpe = TypeRepr.of[StubbedMethod.Internal[Any, Any]],
+          flags = Flags.EmptyFlags,
+          privateWithin = Symbol.noSymbol
         ),
-        TypeTree.of[T & scala.reflect.Selectable]
+        // Creates an override for the val
+        // override val <name>: type
+        if method.symbol.isValDef then
+          Symbol.newVal(
+            parent = classSymbol,
+            name = method.symbol.name,
+            tpe = This(classSymbol).tpe.memberType(method.symbol),
+            flags = Flags.Override,
+            privateWithin = Symbol.noSymbol
+          )
+        else
+          // Creates an implementation for the method, which will use StubbedMethod.Internal under the hood
+          // override def <name>(...args): type
+          Symbol.newMethod(
+            parent = classSymbol,
+            name = method.symbol.name,
+            tpe = This(classSymbol).tpe.memberType(method.symbol),
+            flags = Flags.Override,
+            privateWithin = Symbol.noSymbol
+          ),
+      ),
+      methodBody = (classSymbol, method) => List(
+        ValDef(
+          classSymbol.declaredField(method.stubValName),
+          Some {
+            val callLog = Expr.summon[CallLog] match {
+              case Some(log) => '{ Some(${log}) }
+              case None => '{ None }
+            }
+            val idx = Ref(classSymbol.declaredField(UniqueStubIdx)).asExprOf[Int]
+            val ioOpt = Expr.summon[StubIO].filter(_.isMatches(method.rawResType)) match
+              case Some(io) => '{ Some($io) }
+              case None => '{None}
+
+            '{
+              new StubbedMethod.Internal[Any, Any](
+                s"<stub-" + $idx + "> " + ${ Expr(method.show) },
+                $callLog,
+                $ioOpt
+              )
+            }.asTerm
+          }
+        ),
+        if (method.symbol.isValDef)
+          ValDef(method.symbol.overridingSymbol(classSymbol), Some('{ null }.asTerm))
+        else
+          DefDef(
+            symbol = method.symbol.overridingSymbol(classSymbol),
+            params => Some {
+              method.prepareResType(classSymbol, params).asType match
+                case '[res] =>
+                  val tupledArgs = tupled(params.flatMap {_.collect { case term: Term => term }}).asExpr
+                  '{ ${ method.stubbedMethodRef(classSymbol) }.impl(${tupledArgs}).asInstanceOf[res] }
+                    .asTerm
+                    .changeOwner(method.symbol.overridingSymbol(classSymbol))
+            }
+          )
       )
     )
     //println(instance.show)
