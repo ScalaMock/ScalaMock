@@ -146,3 +146,9 @@ object ApiServiceSpec extends ScalamockZIOSpec {
 }
 
 ```
+
+### Other frameworks
+
+Not using ScalaTest, Specs2 or ZIO Test? You can still use **scalamock** by implementing your own subtype of `org.scalamock.MockFactoryBase`. This makes it possible to adapt ScalaMock to any testing framework (JUnit, MUnit, uTest, etc.), or use it without a framework at all.
+
+For a detailed guide, see [Other Frameworks](/classic/other-frameworks/).
