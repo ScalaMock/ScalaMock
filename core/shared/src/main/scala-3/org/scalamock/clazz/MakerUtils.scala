@@ -72,6 +72,58 @@ class MakerUtils(using override val quotes: Quotes) extends Utils:
   end parentsOf
 
   /**
+   *  Builds `class $anonName extends ...T { ... }` and instantiates it.
+   *  This is the Scala 3 equivalent of the shared `Utils.instance` helper used by Scala 2 macros
+   *  to reuse code between classic mocks and stubs: it takes care of extending T (via [[parentsOf]])
+   *  and wiring up the anonymous class/instantiation boilerplate, while the caller only supplies
+   *  the members that differ between mocks and stubs.
+   *
+   * @param anonName    name of the generated anonymous class
+   * @param extraDecls  extra symbols to declare on the class, not tied to any particular mocked method
+   *                    (e.g. a field holding the mock's default name, or stub bookkeeping members)
+   * @param extraBody   definitions matching `extraDecls`
+   * @param methodDecls symbols to declare for a single mocked method (e.g. a backing field plus its override)
+   * @param methodBody  definitions matching `methodDecls` for a single mocked method
+   * @return an instance of the anonymous class, typed as `T & scala.reflect.Selectable`
+   */
+  def buildInstance[T: Type](
+    anonName: String,
+    extraDecls: (Symbol, List[MockableDefinition]) => List[Symbol],
+    extraBody: (Symbol, List[MockableDefinition]) => List[Statement],
+    methodDecls: (Symbol, MockableDefinition) => List[Symbol],
+    methodBody: (Symbol, MockableDefinition) => List[Statement]
+  ): Term =
+    val tpe = TypeRepr.of[T]
+    val parents = parentsOf[T]
+    val methods = MockableDefinitions(tpe)
+
+    val classSymbol: Symbol = Symbol.newClass(
+      owner = Symbol.spliceOwner,
+      name = anonName,
+      parents = parents.map {
+        case term: Term => term.tpe
+        case tree: TypeTree => tree.tpe
+      },
+      decls = classSymbol => extraDecls(classSymbol, methods) ::: methods.flatMap(methodDecls(classSymbol, _)),
+      selfType = None
+    )
+
+    val classDef = ClassDef(
+      cls = classSymbol,
+      parents = parents,
+      body = extraBody(classSymbol, methods) ::: methods.flatMap(methodBody(classSymbol, _))
+    )
+
+    Block(
+      List(classDef),
+      Typed(
+        Apply(Select(New(TypeIdent(classSymbol)), classSymbol.primaryConstructor), Nil),
+        TypeTree.of[T & scala.reflect.Selectable]
+      )
+    )
+  end buildInstance
+
+  /**
    *  Loops through inlined method call to find mocked object and called method name.
    *  Searches method info (MockableDefinition) through all relevant methods collected from TypeRepr.
    * 

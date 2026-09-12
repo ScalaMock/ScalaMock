@@ -32,19 +32,27 @@ private[clazz] object MockMaker:
     val utils = MakerUtils(using quotes)
     import utils.quotes.reflect.*
     val tpe = TypeRepr.of[T]
-    val mockableDefinitions = utils.MockableDefinitions(tpe)
-    val parents = utils.parentsOf[T]
+
     def createDefaultMockNameSymbol(classSymbol: Symbol) =
       Symbol.newVal(classSymbol, MockDefaultNameValName, TypeRepr.of[String], Flags.EmptyFlags, Symbol.noSymbol)
 
-    val classSymbol: Symbol = Symbol.newClass(
-      owner = Symbol.spliceOwner,
-      name = "$anon",
-      parents = parents.map {
-        case term: Term => term.tpe
-        case tree: TypeTree => tree.tpe
-      },
-      decls = classSymbol => createDefaultMockNameSymbol(classSymbol) :: mockableDefinitions.flatMap { definition =>
+    val instance = utils.buildInstance[T](
+      anonName = "$anon",
+      extraDecls = (classSymbol, _) => List(createDefaultMockNameSymbol(classSymbol)),
+      extraBody = (classSymbol, _) =>
+        val defaultMockNameSymbol = classSymbol.declaredField(MockDefaultNameValName)
+        List(
+          ValDef(
+            defaultMockNameSymbol,
+            Some(
+              name
+                .getOrElse('{ ${ctx}.generateMockDefaultName(${ Expr(mockType.toString.toLowerCase) }).name })
+                .asTerm
+            )
+          )
+        )
+      ,
+      methodDecls = (classSymbol, definition) =>
         val mockFunctionClassSym =
           Symbol.classSymbol(s"org.scalamock.function.${mockType}Function${definition.rawTypes.length}")
 
@@ -77,88 +85,69 @@ private[clazz] object MockMaker:
             )
 
         List(mockFunctionSym, overrideSym)
-      },
-      selfType = None
-    )
-    val defaultMockNameSymbol = classSymbol.declaredField(MockDefaultNameValName)
+      ,
+      methodBody = (classSymbol, definition) =>
+        val defaultMockNameSymbol = classSymbol.declaredField(MockDefaultNameValName)
 
-    val defaultMockName = ValDef(
-      defaultMockNameSymbol,
-      Some(
-        name
-          .getOrElse('{ ${ctx}.generateMockDefaultName(${ Expr(mockType.toString.toLowerCase) }).name })
-          .asTerm
-      )
-    )
-
-    val classDef: ClassDef =
-      ClassDef(
-        cls = classSymbol,
-        parents = parents,
-        body = defaultMockName :: mockableDefinitions.flatMap { definition =>
-          val mockFunctionValDef: ValDef =
-            val valSym = classSymbol.declaredField(definition.mockValName)
-            val mockFunctionClassSymbol = valSym.typeRef.classSymbol.get
-            val mockFunctionUniqueName = '{
-              scala.Symbol(
-                Predef.augmentString("<%s> %s%s.%s%s")
-                  .format(
-                    ${ Ref(defaultMockNameSymbol).asExpr },
-                    ${ Expr(tpe.typeSymbol.name) },
-                    ${ Expr(if (tpe.typeArgs.isEmpty) "" else "[%s]".format(tpe.typeArgs.map(_.show(using Printer.TypeReprShortCode)).mkString(","))) },
-                    ${ Expr(definition.symbol.name) },
-                    ${ Expr {
-                      definition.tpe match
-                        case PolyType(params, _, _) => params.mkString("[", ",", "]")
-                        case _ => ""
-                    }
-                    }
-                  )
-              )
-            }
-            ValDef(
-              symbol = valSym,
-              rhs = Some(
-                Apply(
-                  TypeApply(
-                    Select(
-                      New(TypeIdent(mockFunctionClassSymbol)),
-                      mockFunctionClassSymbol.primaryConstructor
-                    ),
-                    List.fill(definition.rawTypes.length + 1)(TypeTree.of[Any])
-                  ),
-                  List(ctx.asTerm, mockFunctionUniqueName.asTerm)
+        val mockFunctionValDef: ValDef =
+          val valSym = classSymbol.declaredField(definition.mockValName)
+          val mockFunctionClassSymbol = valSym.typeRef.classSymbol.get
+          val mockFunctionUniqueName = '{
+            scala.Symbol(
+              Predef.augmentString("<%s> %s%s.%s%s")
+                .format(
+                  ${ Ref(defaultMockNameSymbol).asExpr },
+                  ${ Expr(tpe.typeSymbol.name) },
+                  ${ Expr(if (tpe.typeArgs.isEmpty) "" else "[%s]".format(tpe.typeArgs.map(_.show(using Printer.TypeReprShortCode)).mkString(","))) },
+                  ${ Expr(definition.symbol.name) },
+                  ${ Expr {
+                    definition.tpe match
+                      case PolyType(params, _, _) => params.mkString("[", ",", "]")
+                      case _ => ""
+                  }
+                  }
                 )
+            )
+          }
+          ValDef(
+            symbol = valSym,
+            rhs = Some(
+              Apply(
+                TypeApply(
+                  Select(
+                    New(TypeIdent(mockFunctionClassSymbol)),
+                    mockFunctionClassSymbol.primaryConstructor
+                  ),
+                  List.fill(definition.rawTypes.length + 1)(TypeTree.of[Any])
+                ),
+                List(ctx.asTerm, mockFunctionUniqueName.asTerm)
               )
             )
+          )
 
-          val definitionOverride =
-            if (definition.symbol.isValDef)
-              ValDef(definition.symbol.overridingSymbol(classSymbol), Some('{ null }.asTerm))
-            else
-              DefDef(
-                definition.symbol.overridingSymbol(classSymbol),
-                { args =>
-                  Some(
-                    TypeApply(
-                      Select.unique(
-                        Apply(
-                          Select.unique(Ref(mockFunctionValDef.symbol), "apply"),
-                          args.flatten.collect { case t: Term => t }
-                        ),
-                        "asInstanceOf"
+        val definitionOverride =
+          if (definition.symbol.isValDef)
+            ValDef(definition.symbol.overridingSymbol(classSymbol), Some('{ null }.asTerm))
+          else
+            DefDef(
+              definition.symbol.overridingSymbol(classSymbol),
+              { args =>
+                Some(
+                  TypeApply(
+                    Select.unique(
+                      Apply(
+                        Select.unique(Ref(mockFunctionValDef.symbol), "apply"),
+                        args.flatten.collect { case t: Term => t }
                       ),
-                      definition.prepareResType(classSymbol, args)
-                        .asType match { case '[t] => List(TypeTree.of[t]) }
-                    )
+                      "asInstanceOf"
+                    ),
+                    definition.prepareResType(classSymbol, args)
+                      .asType match { case '[t] => List(TypeTree.of[t]) }
                   )
-                }
-              )
-          List(mockFunctionValDef, definitionOverride)
-        }
-      )
+                )
+              }
+            )
+        List(mockFunctionValDef, definitionOverride)
+    )
 
-    Block(
-      List(classDef),
-      Typed(Apply(Select(New(TypeIdent(classSymbol)), classSymbol.primaryConstructor), Nil), TypeTree.of[T & Selectable])
-    ).asExprOf[T & Selectable]
+    instance.asExprOf[T & Selectable]
