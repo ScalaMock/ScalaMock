@@ -2,6 +2,7 @@ import sbtcrossproject.CrossPlugin.autoImport.crossProject
 
 lazy val scalatest = Def.setting("org.scalatest" %%% "scalatest" % "3.2.20")
 lazy val specs2 = Def.setting("org.specs2" %%% "specs2-core" % "4.23.0")
+lazy val specs2_5 = Def.setting("org.specs2" %%% "specs2-core" % "5.9.1")
 
 val commonSettings = Defaults.coreDefaultSettings ++ Seq(
   scalaVersion := "3.9.0",
@@ -24,7 +25,10 @@ lazy val root = project.in(file("."))
     `scalamock-cats-effect`.native,
     `scalamock-specs2-4`.jvm,
     `scalamock-specs2-4`.js,
-    `scalamock-specs2-4`.native
+    `scalamock-specs2-4`.native,
+    `scalamock-specs2-5`.jvm,
+    `scalamock-specs2-5`.js,
+    `scalamock-specs2-5`.native
   )
 
 lazy val scalamock = crossProject(JSPlatform, JVMPlatform, NativePlatform)
@@ -101,6 +105,19 @@ lazy val `scalamock-specs2-4` = crossProject(JSPlatform, JVMPlatform, NativePlat
   // Only Scala 3 (which uses scala.reflect.Selectable instead) is supported on Native.
   .nativeSettings(
     crossScalaVersions := Seq(scalaVersion.value)
+  )
+  .dependsOn(scalamock)
+
+// specs2 5.x dropped Scala 2 support entirely - only Scala 3 artifacts are published
+// (for JVM, JS and Native), so this module is restricted to Scala 3 across all platforms.
+lazy val `scalamock-specs2-5` = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("specs2/specs2-5"))
+  .settings(
+    name := "scalamock-specs2-5",
+    commonSettings,
+    crossScalaSettings,
+    crossScalaVersions := Seq(scalaVersion.value),
+    libraryDependencies += specs2_5.value
   )
   .dependsOn(scalamock)
 
