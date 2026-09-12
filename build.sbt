@@ -41,7 +41,10 @@ lazy val scalamock = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     crossScalaSettings,
     name := "scalamock",
     Compile / doc / scalacOptions ++= Opts.doc.title("ScalaMock") ++
-      Opts.doc.version(version.value) ++ Seq("-doc-root-content", "rootdoc.txt", "-version")
+      Opts.doc.version(version.value) ++ Seq("-doc-root-content", "rootdoc.txt", "-version"),
+    libraryDependencies ++= Seq(
+      scalatest.value % Test
+    )
   )
   // Scala Native 0.5 dropped java.lang.reflect support, which the Scala 2 macros rely on.
   // Only Scala 3 (which uses scala.reflect.Selectable instead) is supported on Native.
