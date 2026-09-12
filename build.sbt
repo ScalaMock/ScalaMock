@@ -28,7 +28,10 @@ lazy val root = project.in(file("."))
     `scalamock-specs2-4`.native,
     `scalamock-specs2-5`.jvm,
     `scalamock-specs2-5`.js,
-    `scalamock-specs2-5`.native
+    `scalamock-specs2-5`.native,
+    `scalamock-scalatest`.jvm,
+    `scalamock-scalatest`.js,
+    `scalamock-scalatest`.native
   )
 
 lazy val scalamock = crossProject(JSPlatform, JVMPlatform, NativePlatform)
@@ -40,7 +43,7 @@ lazy val scalamock = crossProject(JSPlatform, JVMPlatform, NativePlatform)
     Compile / doc / scalacOptions ++= Opts.doc.title("ScalaMock") ++
       Opts.doc.version(version.value) ++ Seq("-doc-root-content", "rootdoc.txt", "-version"),
     libraryDependencies ++= Seq(
-      scalatest.value % Optional
+      scalatest.value % Test
     )
   )
   // Scala Native 0.5 dropped java.lang.reflect support, which the Scala 2 macros rely on.
@@ -121,17 +124,29 @@ lazy val `scalamock-specs2-5` = crossProject(JSPlatform, JVMPlatform, NativePlat
   )
   .dependsOn(scalamock)
 
+lazy val `scalamock-scalatest` = crossProject(JSPlatform, JVMPlatform, NativePlatform)
+  .in(file("scalatest"))
+  .settings(
+    name := "scalamock-scalatest",
+    commonSettings,
+    crossScalaSettings,
+    libraryDependencies += scalatest.value
+  )
+  // Scala Native 0.5 dropped java.lang.reflect support, which the Scala 2 macros rely on.
+  // Only Scala 3 (which uses scala.reflect.Selectable instead) is supported on Native.
+  .nativeSettings(
+    crossScalaVersions := Seq(scalaVersion.value)
+  )
+  .dependsOn(scalamock % "compile->compile;test->test")
+
 lazy val examples = project
   .in(file("core/examples"))
   .settings(
     commonSettings,
     crossScalaSettings,
     name := "ScalaMock Examples",
-    publish / skip := true,
-    libraryDependencies ++= Seq(
-      scalatest.value % Test
-    )
-  ) dependsOn (scalamock.jvm, `scalamock-specs2-4`.jvm)
+    publish / skip := true
+  ) dependsOn (scalamock.jvm, `scalamock-scalatest`.jvm, `scalamock-specs2-4`.jvm)
 
 def crossScalaSettings = {
   def addDirsByScalaVersion(path: String): Def.Initialize[Seq[sbt.File]] =
