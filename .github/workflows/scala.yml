@@ -30,6 +30,7 @@ jobs:
         scalamockJVM/test scalamockJS/test
         scalamock-zioJVM/test scalamock-zioJS/test
         scalamock-cats-effectJVM/test scalamock-cats-effectJS/test
+        scalamock-specs2-4JVM/test scalamock-specs2-4JS/test
 
   scala_2_13:
 
@@ -50,6 +51,7 @@ jobs:
         scalamockJVM/test scalamockJS/test
         scalamock-zioJVM/test scalamock-zioJS/test
         scalamock-cats-effectJVM/test scalamock-cats-effectJS/test
+        scalamock-specs2-4JVM/test scalamock-specs2-4JS/test
 
   scala_3:
 
