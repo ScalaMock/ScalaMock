@@ -74,11 +74,17 @@ class ExchangeRateListingTest extends AsyncFlatSpec with AsyncMockFactory {
 }
 ```
 ### Specs2
-To use **scalamock** with **specs2** you should run each test case in a separate fixture context that mixins `org.scalamock.specs2.MockContext`
+
+Specs2 integration is split into two modules, depending on which major version of specs2 you use:
+
+- `scalamock-specs2-4` - for specs2 4.x, available for Scala 2.13 and Scala 3
+- `scalamock-specs2-5` - for specs2 5.x, available for Scala 3 only (specs2 5.x dropped Scala 2 support entirely)
+
+Both modules provide the same `org.scalamock.specs2.MockContext` fixture-context trait. To use **scalamock** with **specs2** you should run each test case in a separate fixture context that mixins `org.scalamock.specs2.MockContext`
 
 ```scala
-//> using test.dep org.scalamock::scalamock:7.4.1
-//> using test.dep org.specs2::specs2-core:5.6.3
+//> using test.dep org.scalamock::scalamock-specs2-4:7.5.0
+//> using test.dep org.specs2::specs2-core:4.23.0
 
 import org.scalamock.specs2.MockContext
 import org.specs2.mutable.Specification
@@ -90,7 +96,7 @@ class MySpec extends Specification {
     val service2 = stub[Service2]
     val service3 = Service3(service1, service2)
   }
-  
+
   "CoffeeMachine" should {
     "not turn on the heater when the water container is empty" in new Wiring {
       val waterContainerMock = mock[WaterContainer]
@@ -99,6 +105,20 @@ class MySpec extends Specification {
   }
 }
 ```
+
+To use it with specs2 5.x instead, swap the dependency for `scalamock-specs2-5` (Scala 3 only):
+
+```scala
+//> using test.dep org.scalamock::scalamock-specs2-5:7.5.0
+//> using test.dep org.specs2::specs2-core:5.9.1
+```
+
+{: .note }
+> Specs2 5.x removed "isolated" specifications, so a single specification instance (and any mocks defined
+> in its suite scope, outside a fixture context) is now shared across all of its examples. If you need
+> **suite-scope** mocks with specs2 5.x, mixin `org.scalamock.specs2.SuiteMockFactory` instead of/alongside
+> `MockContext` - it serializes example execution for that specification via a lock so suite-scope mocks
+> stay safe even when specs2 schedules examples of different specifications in parallel.
 
 ### ZIO Test
 
