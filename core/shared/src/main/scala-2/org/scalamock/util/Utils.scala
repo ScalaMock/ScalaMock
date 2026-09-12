@@ -41,6 +41,9 @@ private[scalamock] class Utils[C <: blackbox.Context](val ctx: C, val newApi: Bo
     else
       Nil
 
+  private def isJsAny(typeToMock: Type): Boolean =
+    isScalaJs && typeToMock.baseClasses.exists(_.fullName == "scala.scalajs.js.Any")
+
   case class MockableDefinition(
     symbol: MethodSymbol,
     typeToMock: Type
@@ -51,7 +54,7 @@ private[scalamock] class Utils[C <: blackbox.Context](val ctx: C, val newApi: Bo
       TermName(namePrefix + "$" + symbol.name + "$" + index)
     }
 
-    val annotations = scalaJSAnnotations(name)
+    val annotations = if (isJsAny(typeToMock)) Nil else scalaJSAnnotations(name)
 
     val tpe = symbol.typeSignatureIn(
       internal.superType(internal.thisType(typeToMock.typeSymbol), typeToMock)
@@ -60,10 +63,16 @@ private[scalamock] class Utils[C <: blackbox.Context](val ctx: C, val newApi: Bo
     val resTpe = forwarderParamType(typeToMock, finalResultType(tpe))
   }
 
+  private val jsObjectFullNames = Set("scala.scalajs.js.Object", "scala.scalajs.js.Any")
+
+  private def isMemberOfJsObject(s: Symbol): Boolean =
+    jsObjectFullNames.contains(s.owner.fullName)
+
   object MockableDefinitions {
-    def apply(typeToMock: Type): List[MockableDefinition] =
+    def apply(typeToMock: Type): List[MockableDefinition] = {
+      val jsAny = isJsAny(typeToMock)
       typeToMock.members
-        .filter(m => m.isMethod && !isMemberOfObject(m))
+        .filter(m => m.isMethod && !isMemberOfObject(m) && !(jsAny && isMemberOfJsObject(m)))
         .map(_.asMethod)
         .filter { m =>
           val flags = m.asInstanceOf[reflect.internal.HasFlags]
@@ -75,6 +84,7 @@ private[scalamock] class Utils[C <: blackbox.Context](val ctx: C, val newApi: Bo
             (!(m.isStable || m.isAccessor) || flags.isDeferred)
         }.toList
         .map(MockableDefinition(_, typeToMock))
+    }
   }
 
   /**
@@ -176,11 +186,18 @@ private[scalamock] class Utils[C <: blackbox.Context](val ctx: C, val newApi: Bo
           m.symbol.name,
           m.tpe.typeParams.map(internal.typeDef),
           paramss(m.tpe).map(_.map { p =>
+            val needsExplicitDefault = p.asTerm.isParamWithDefault && isJsAny(typeToMock)
+            val flags = Flag.PARAM |
+              (if (p.isImplicit) Flag.IMPLICIT else NoFlags) |
+              (if (needsExplicitDefault) Flag.DEFAULTPARAM else NoFlags)
+            val defaultValue =
+              if (needsExplicitDefault) q"null.asInstanceOf[${forwarderParamType(typeToMock, p.typeSignature)}]"
+              else EmptyTree
             ValDef(
-              Modifiers(Flag.PARAM | (if (p.isImplicit) Flag.IMPLICIT else NoFlags)),
+              Modifiers(flags),
               TermName(p.name.toString),
               forwarderParamType(typeToMock, p.typeSignature),
-              EmptyTree
+              defaultValue
             )
           }),
           m.resTpe,
