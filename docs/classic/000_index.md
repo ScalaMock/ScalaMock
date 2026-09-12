@@ -23,6 +23,12 @@ The first rule of **scalamock** is not to share any mocks and stubs between your
 
 Usually - you should create some fixture/wiring to be reused in each test-case.
 
+{: .note }
+> As of **7.6.0**, test framework integrations are being extracted out of the core `scalamock` artifact into
+> their own published modules with their own dependency on the corresponding framework - see the
+> [Specs2](#specs2) section below. **Scalatest** integration is still bundled in the core `scalamock` module
+> for now, but will be extracted into its own `scalamock-scalatest` module the same way in an upcoming release.
+
 ### Scalatest
 
 To use **scalamock** with **scalatest** - your suite should mixin `org.scalamock.scalatest.MockFactory`
@@ -83,7 +89,7 @@ Specs2 integration is split into two modules, depending on which major version o
 Both modules provide the same `org.scalamock.specs2.MockContext` fixture-context trait. To use **scalamock** with **specs2** you should run each test case in a separate fixture context that mixins `org.scalamock.specs2.MockContext`
 
 ```scala
-//> using test.dep org.scalamock::scalamock-specs2-4:7.5.0
+//> using test.dep org.scalamock::scalamock-specs2-4:7.6.0
 //> using test.dep org.specs2::specs2-core:4.23.0
 
 import org.scalamock.specs2.MockContext
@@ -109,7 +115,7 @@ class MySpec extends Specification {
 To use it with specs2 5.x instead, swap the dependency for `scalamock-specs2-5` (Scala 3 only):
 
 ```scala
-//> using test.dep org.scalamock::scalamock-specs2-5:7.5.0
+//> using test.dep org.scalamock::scalamock-specs2-5:7.6.0
 //> using test.dep org.specs2::specs2-core:5.9.1
 ```
 
